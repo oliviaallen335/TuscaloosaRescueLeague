@@ -1,1 +1,1 @@
-web: cd Api && dotnet AdoptionAgency.Api.dll
+web: dotnet Api/bin/Release/net9.0/publish/AdoptionAgency.Api.dll
