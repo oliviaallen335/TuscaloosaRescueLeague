@@ -96,7 +96,9 @@ app.UseCors("AllowFrontend");
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
+app.MapGet("/", () => Results.Ok(new { status = "ok", app = "Tuscaloosa Rescue League API" }));
 app.MapControllers();
 
 app.Run();
