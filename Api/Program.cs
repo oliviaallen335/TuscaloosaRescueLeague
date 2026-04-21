@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using AdoptionAgency.Api.Data;
 using AdoptionAgency.Api.Services;
 using MySqlConnector;
+using System.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 var mysqlConnection = ResolveMySqlConnectionString(builder.Configuration);
@@ -84,7 +85,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdoptionDbContext>();
-    await db.Database.MigrateAsync();
+    if (await ShouldRunMigrationsAsync(db))
+        await db.Database.MigrateAsync();
     await DbSeeder.SeedAsync(db, app.Configuration);
 }
 
@@ -131,4 +133,32 @@ static string ConvertHerokuMySqlUrl(string url)
         SslMode = MySqlSslMode.Required
     };
     return csb.ConnectionString;
+}
+
+static async Task<bool> ShouldRunMigrationsAsync(AdoptionDbContext db)
+{
+    // If DB is empty/new, run migrations.
+    // If tables already exist but migration history is missing, skip startup migration
+    // to avoid "table already exists" crash on legacy/provisioned databases.
+    var conn = db.Database.GetDbConnection();
+    if (conn.State != ConnectionState.Open)
+        await conn.OpenAsync();
+
+    await using var cmd = conn.CreateCommand();
+    cmd.CommandText = @"
+SELECT
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE() AND table_name = '__EFMigrationsHistory') AS HistExists,
+  (SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema = DATABASE() AND table_name = 'Animals') AS AnimalsExists;";
+    await using var reader = await cmd.ExecuteReaderAsync();
+    await reader.ReadAsync();
+    var histExists = reader.GetInt32(0) > 0;
+    var animalsExists = reader.GetInt32(1) > 0;
+    await reader.CloseAsync();
+
+    if (!histExists && animalsExists)
+        return false;
+
+    return true;
 }
