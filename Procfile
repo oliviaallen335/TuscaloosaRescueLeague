@@ -1,1 +1,1 @@
-web: dotnet Api/bin/Release/net9.0/publish/AdoptionAgency.Api.dll
+web: dotnet Api/bin/publish/AdoptionAgency.Api.dll
