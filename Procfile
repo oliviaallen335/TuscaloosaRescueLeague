@@ -1,0 +1,1 @@
+web: cd Api && dotnet AdoptionAgency.Api.dll

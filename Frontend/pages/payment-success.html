@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment complete - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group">
+        <a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a>
+        <span id="empNav" class="hidden"><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="placements.html">Placements</a></span>
+        <span id="appNav" class="hidden"><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a></span>
+      </span>
+      <span class="nav-group">
+        <span id="authLinks"><a href="login.html" class="nav-cta">Login</a><a href="register.html" class="nav-cta">Sign Up</a></span>
+        <span id="userSpan" class="hidden">Welcome, <span id="userName"></span> <button id="navLogout" class="btn">Logout</button></span>
+      </span>
+    </nav>
+  </header>
+  <main>
+    <h1>Payment complete</h1>
+    <p id="msg">Thank you! Your adoption fee has been received. We'll be in touch soon.</p>
+    <p id="err" class="error" style="display:none"></p>
+    <p><a href="applicant-dashboard.html">← Back to My account</a></p>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    auth.initNav();
+    const u = auth.getUser();
+    if (u) document.getElementById('userName').textContent = u.email;
+    (async () => {
+      const params = new URLSearchParams(location.search);
+      const sessionId = params.get('session_id');
+      if (!sessionId || !auth.getToken()) return;
+      try {
+        const res = await auth.api('/payments/confirm-session?session_id=' + encodeURIComponent(sessionId));
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          document.getElementById('err').textContent = j.error || 'Could not confirm payment';
+          document.getElementById('err').style.display = 'block';
+        }
+      } catch (e) {
+        document.getElementById('err').textContent = 'Could not reach server.';
+        document.getElementById('err').style.display = 'block';
+      }
+    })();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+
+

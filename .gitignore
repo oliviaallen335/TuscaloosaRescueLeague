@@ -1,0 +1,17 @@
+# Build
+bin/
+obj/
+
+# Uploaded animal photos (keep folder)
+Api/wwwroot/uploads/animals/*
+!Api/wwwroot/uploads/animals/.gitkeep
+
+# SQLite dev database (swap to SQL Server for production)
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vs/
+.vscode/
+*.user

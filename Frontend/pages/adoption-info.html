@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Adoption info - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group">
+        <a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a>
+        <span id="empNav" class="hidden"><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="placements.html">Placements</a><a href="manage-outreach.html">Manage events</a></span>
+        <span id="appNav" class="hidden"><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a></span>
+      </span>
+      <span class="nav-group">
+        <span id="authLinks"><a href="login.html" class="nav-cta">Login</a><a href="register.html" class="nav-cta">Sign Up</a></span>
+        <span id="userSpan" class="hidden">Welcome, <span id="userName"></span> <button id="navLogout" class="btn">Logout</button></span>
+      </span>
+    </nav>
+  </header>
+  <main>
+    <h1>What to expect</h1>
+
+    <div class="section">
+      <h2>Your adoption packet</h2>
+      <p>When you adopt, you'll receive:</p>
+      <ul>
+        <li>Health records and vaccination history</li>
+        <li>Microchip registration information</li>
+        <li>Spay/neuter certificate (if applicable)</li>
+        <li>Care sheet with feeding and grooming guidelines</li>
+        <li>List of recommended supplies</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h2>Adoption process</h2>
+      <ol>
+        <li>Browse our <a href="catalog.html">catalog</a> and find a pet you're interested in</li>
+        <li>Submit an adoption application online</li>
+        <li>Our team reviews your application (1–3 business days)</li>
+        <li>Schedule a meet-and-greet with the animal</li>
+        <li>Complete adoption paperwork and pay the adoption fee</li>
+        <li>Take your new pet home</li>
+      </ol>
+    </div>
+
+    <div class="section">
+      <h2>Vet records</h2>
+      <p>Each animal's vet records (vaccinations, treatments, health notes) are included in their adoption packet. You'll receive a copy to give to your veterinarian so they have the full history.</p>
+    </div>
+  </main>
+  <footer><p>Contact • Address • Email • Instagram</p></footer>
+  <script src="../js/auth.js"></script>
+  <script>auth.initNav(); const u = auth.getUser(); if (u) document.getElementById('userName').textContent = u.email;</script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+
+

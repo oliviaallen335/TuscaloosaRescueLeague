@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Placements - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="employee-applications.html">Applications</a><a href="placements.html">Placements</a><a href="outreach.html">Events</a><a href="manage-outreach.html">Manage events</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Placements</h1>
+    <p id="needLogin" class="error" style="display:none">Employee login required.</p>
+    <div id="app" style="display:none">
+      <p>
+        Filter animal Public ID: <input id="filterPid" placeholder="D-260320-001">
+        <button type="button" id="reload">Load</button>
+      </p>
+      <h2>New placement</h2>
+      <form id="createForm" style="max-width:420px">
+        <div><label>Animal Public ID</label><input name="animalPublicId" required></div>
+        <div><label>Applicant ID</label><input name="applicantId" type="number" min="1" required>
+          <small> — <a href="#" id="findApp">Find applicants</a></small></div>
+        <div id="applicantPick" style="display:none;margin:0.5rem 0"></div>
+        <div><label>Type</label><select name="placementType"><option value="Foster">Foster</option><option value="Adoption">Adoption</option></select></div>
+        <div><label>Start date</label><input name="startDate" type="date" required></div>
+        <div id="feeWrap"><label>Fee (optional, foster only)</label><input name="fee" type="number" step="0.01"></div>
+        <p id="feePolicy"><small>Adoption fee is auto-calculated by policy: Adult $130, Puppy/Kitten $70 (Dog adult = 48 months, Cat adult = 12 months).</small></p>
+        <div><label>Notes</label><textarea name="notes" rows="2"></textarea></div>
+        <button type="submit" class="btn btn-primary">Create</button>
+        <p id="createErr" class="error" style="display:none"></p>
+      </form>
+      <h2>List</h2>
+      <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;max-width:900px">
+        <thead><tr><th>Animal</th><th>Applicant</th><th>Type</th><th>Start</th><th>End</th><th>Fee</th><th>Payment</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    if (!auth.getToken() || auth.getUser()?.role !== 'Employee') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else {
+      document.getElementById('app').style.display = 'block';
+      document.querySelector('[name=startDate]').value = new Date().toISOString().slice(0, 10);
+    }
+    async function load() {
+      const pid = document.getElementById('filterPid').value.trim();
+      const q = pid ? '?animalPublicId=' + encodeURIComponent(pid) : '';
+      const res = await auth.api('/placements' + q);
+      const list = await res.json();
+      document.getElementById('rows').innerHTML = list.map(p => `
+        <tr>
+          <td><a href="animal.html?publicId=${encodeURIComponent(p.animalPublicId)}">${p.animalName}</a><br><small>${p.animalPublicId}</small></td>
+          <td>#${p.applicantId} ${p.applicantName}</td>
+          <td>${p.placementType}</td>
+          <td>${new Date(p.startDate).toLocaleDateString()}</td>
+          <td>${p.endDate ? new Date(p.endDate).toLocaleDateString() : '—'}</td>
+          <td>${p.fee ?? '—'}</td>
+          <td>${p.placementType === 'Adoption' && p.fee > 0 ? (p.isPaid ? '<span style="color:#6a6;font-weight:600">✓ Paid</span>' : '<span style="color:#888">Awaiting payment</span>') : '—'}</td>
+          <td>${!p.endDate ? `<button data-id="${p.id}" class="btn endBtn">End</button>` : ''}</td>
+        </tr>`).join('');
+      document.querySelectorAll('.endBtn').forEach(btn => {
+        btn.onclick = async () => {
+          const endDate = prompt('End date YYYY-MM-DD', new Date().toISOString().slice(0, 10));
+          if (!endDate) return;
+          const r = await auth.api('/placements/' + btn.dataset.id + '/end', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endDate: new Date(endDate + 'T12:00:00Z').toISOString() })
+          });
+          const j = await r.json();
+          if (!r.ok) alert(auth.parseError(j)); else load();
+        };
+      });
+    }
+    document.getElementById('reload').onclick = load;
+    const placementTypeEl = document.querySelector('[name=placementType]');
+    const feeWrap = document.getElementById('feeWrap');
+    function syncFeeUi() {
+      const isAdoption = placementTypeEl.value === 'Adoption';
+      feeWrap.style.display = isAdoption ? 'none' : 'block';
+    }
+    placementTypeEl.addEventListener('change', syncFeeUi);
+    syncFeeUi();
+    document.getElementById('createForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const isAdoption = f.placementType.value === 'Adoption';
+      const body = {
+        animalPublicId: f.animalPublicId.value,
+        applicantId: parseInt(f.applicantId.value, 10),
+        placementType: f.placementType.value,
+        startDate: new Date(f.startDate.value + 'T12:00:00Z').toISOString(),
+        fee: isAdoption ? null : (f.fee.value ? parseFloat(f.fee.value) : null),
+        notes: f.notes.value || null
+      };
+      const err = document.getElementById('createErr');
+      err.style.display = 'none';
+      const res = await auth.api('/placements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { err.textContent = auth.parseError(data); err.style.display = 'block'; return; }
+      load();
+    };
+    document.getElementById('findApp').onclick = async (e) => {
+      e.preventDefault();
+      const q = prompt('Search name or email');
+      if (q == null) return;
+      const res = await auth.api('/applicants?q=' + encodeURIComponent(q));
+      const list = await res.json();
+      const box = document.getElementById('applicantPick');
+      box.style.display = 'block';
+      box.innerHTML = list.length ? list.map(a =>
+        `<button type="button" data-id="${a.id}">${a.firstName} ${a.lastName} (${a.email || 'no email'}) #${a.id}</button> `).join('') : 'No results';
+      box.querySelectorAll('button[data-id]').forEach(b => {
+        b.onclick = () => { document.querySelector('[name=applicantId]').value = b.dataset.id; };
+      });
+    };
+    load();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="employee-applications.html">Applications</a><a href="placements.html">Placements</a><a href="outreach.html">Events</a><a href="manage-outreach.html">Manage events</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Dashboard</h1>
+    <p id="needLogin" class="error" style="display:none">Employee login required.</p>
+    <div id="stats" class="stats" style="display:none"></div>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    if (!auth.getToken() || auth.getUser()?.role !== 'Employee') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else {
+      (async () => {
+        const res = await auth.api('/dashboard/stats');
+        if (!res.ok) return;
+        const s = await res.json();
+        const labels = [
+          ['Intake', s.intake], ['In foster', s.inFoster], ['Adoptable', s.adoptable], ['Adopted', s.adopted],
+          ['Hold', s.hold], ['Medical hold', s.medicalHold], ['Open foster placements', s.openFosterPlacements]
+        ];
+        document.getElementById('stats').innerHTML = labels.map(([n, v]) =>
+          `<div class="stat"><strong>${v}</strong>${n}</div>`).join('');
+        document.getElementById('stats').style.display = 'grid';
+      })();
+    }
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

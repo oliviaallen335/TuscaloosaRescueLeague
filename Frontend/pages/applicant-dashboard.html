@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My account - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a><a href="my-profile.html">Profile</a></span>
+      <span class="nav-group"><span>Welcome, <span id="navEmail"></span></span><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>My account</h1>
+    <p id="needLogin" class="error" style="display:none">Sign in as an applicant (register or log in).</p>
+    <div id="app" style="display:none">
+      <div class="section">
+        <h2>My applications</h2>
+        <table><thead><tr><th>Animal</th><th>ID</th><th>Status</th><th>Submitted</th><th></th></tr></thead><tbody id="apps"></tbody></table>
+      </div>
+      <div class="section">
+        <h2>My placements</h2>
+        <table><thead><tr><th>Animal</th><th>Type</th><th>Start</th><th>Fee</th><th></th></tr></thead><tbody id="placements"></tbody></table>
+      </div>
+      <div class="section">
+        <h2>Payment history</h2>
+        <table><thead><tr><th>Animal</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="payments"></tbody></table>
+      </div>
+      <div class="section">
+        <h2>Suggested matches</h2>
+        <p><small>Based on your profile (kids/cats/dogs). Full questionnaire matching comes later.</small></p>
+        <div id="matches"></div>
+      </div>
+    </div>
+  </main>
+  <footer><p>Contact • Address • Email • Instagram</p></footer>
+  <script src="../js/auth.js"></script>
+  <script>
+    (function() {
+      const u = auth.getUser();
+      if (u) document.getElementById('navEmail').textContent = u.email;
+      document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    })();
+    if (!auth.getToken() || auth.getUser()?.role !== 'Applicant') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else {
+      document.getElementById('app').style.display = 'block';
+      (async () => {
+        const ar = await auth.api('/applications');
+        const apps = await ar.json();
+        const pr = await auth.api('/placements/me');
+        const placements = await pr.json();
+        const base = location.origin + (location.pathname.endsWith('/') ? '' : location.pathname.replace(/[^/]+$/, ''));
+        document.getElementById('placements').innerHTML = placements.length ? placements.map(p => {
+          const payCell = p.placementType === 'Adoption' && p.fee > 0
+            ? (p.isPaid ? '<span style="color:#6a6;font-weight:600">✓ Paid</span>'
+              : p.hasPendingPayment ? '<span style="color:#c90">Payment in progress…</span>'
+              : `<button type="button" class="btn btn-primary payBtn" data-id="${p.id}">Pay adoption fee</button>`)
+            : '—';
+          return `<tr>
+            <td><a href="animal.html?publicId=${encodeURIComponent(p.animalPublicId)}">${p.animalName}</a> (${p.animalPublicId})</td>
+            <td>${p.placementType}</td>
+            <td>${new Date(p.startDate).toLocaleDateString()}</td>
+            <td>${p.fee != null ? '$' + p.fee : '—'}</td>
+            <td>${payCell}</td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="5">No placements yet.</td></tr>';
+        document.querySelectorAll('.payBtn').forEach(btn => {
+          btn.onclick = async () => {
+            btn.disabled = true;
+            btn.textContent = '…';
+            const successUrl = location.origin + location.pathname.replace(/[^/]+$/, '') + 'payment-success.html';
+            const cancelUrl = location.origin + location.pathname.replace(/[^/]+$/, '') + 'payment-cancel.html';
+            const res = await auth.api('/payments/create-checkout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ placementId: parseInt(btn.dataset.id, 10), successUrl, cancelUrl })
+            });
+            const data = await res.json();
+            if (data.checkoutUrl) location.href = data.checkoutUrl;
+            else { alert(auth.parseError(data) || 'Could not start payment'); btn.disabled = false; btn.textContent = 'Pay adoption fee'; }
+          };
+        });
+
+        const payRes = await auth.api('/payments');
+        const payments = await payRes.json();
+        document.getElementById('payments').innerHTML = payments.length ? payments.map(p => `
+          <tr><td><a href="animal.html?publicId=${encodeURIComponent(p.animalPublicId)}">${p.animalName}</a></td>
+          <td>$${p.amount}</td><td>${p.status}</td><td>${new Date(p.createdAt).toLocaleString()}</td></tr>`).join('')
+          : '<tr><td colspan="4">No payments yet.</td></tr>';
+
+        document.getElementById('apps').innerHTML = apps.length ? apps.map(a => `
+          <tr>
+            <td><a href="animal.html?publicId=${encodeURIComponent(a.animalPublicId)}">${a.animalName}</a></td>
+            <td>${a.animalPublicId}</td>
+            <td>${a.status}</td>
+            <td>${new Date(a.submittedAt).toLocaleString()}</td>
+            <td>${a.status === 'Pending' ? `<button type="button" class="btn withdrawBtn" data-id="${a.id}">Withdraw</button>` : ''}</td>
+          </tr>`).join('') : '<tr><td colspan="5">No applications yet. Browse the <a href="catalog.html">catalog</a>.</td></tr>';
+
+        const mr = await auth.api('/me/matches');
+        const matches = await mr.json();
+        document.querySelectorAll('.withdrawBtn').forEach(btn => {
+          btn.onclick = async () => {
+            if (!confirm('Withdraw this application? This cannot be undone.')) return;
+            const res = await auth.api('/applications/' + btn.dataset.id, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'Withdrawn' })
+            });
+            if (res.ok) location.reload();
+            else { const j = await res.json().catch(() => ({})); alert(auth.parseError(j) || 'Withdraw failed'); }
+          };
+        });
+
+        document.getElementById('matches').innerHTML = matches.length ? matches.map(m => {
+          const img = m.primaryPhotoUrl ? `${API_ORIGIN}${m.primaryPhotoUrl}` : '';
+          return `<div class="match">
+            ${img ? `<img src="${img}" alt="">` : '<div></div>'}
+            <div><strong><a href="animal.html?publicId=${encodeURIComponent(m.publicId)}">${m.name}</a></strong> (${m.species})
+            · score <strong>${m.score ?? '—'}</strong>
+            <br>${m.breedPrimary || ''}
+            <br><small>${(m.reasons || []).join(' · ')}</small></div>
+          </div>`;
+        }).join('') : '<p>No adoptable pets match your profile filters right now. Try <a href="match.html">Find your match</a> for full questionnaire.</p>';
+      })();
+    }
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="css/main.css?v=trl-1">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav id="nav">
+      <span class="nav-group">
+        <a href="index.html">Home</a>
+        <a href="pages/catalog.html">Catalog</a>
+        <a href="pages/outreach.html">Events</a>
+        <a href="pages/faq.html">FAQ</a>
+        <span id="empNav" class="hidden"><span class="nav-divider"></span><a href="pages/dashboard.html">Dashboard</a><a href="pages/employee-animals.html">Animals</a><a href="pages/placements.html">Placements</a><a href="pages/manage-outreach.html">Manage events</a></span>
+        <span id="appNav" class="hidden"><span class="nav-divider"></span><a href="pages/applicant-dashboard.html">My account</a><a href="pages/match.html">Find match</a></span>
+      </span>
+      <span class="nav-group">
+        <span id="authLinks"><a href="pages/login.html" class="nav-cta">Login</a><a href="pages/register.html" class="nav-cta">Sign Up</a></span>
+        <span id="userSpan" class="hidden">Welcome, <span id="userName"></span> <button id="logoutBtn" class="btn">Logout</button></span>
+      </span>
+    </nav>
+  </header>
+  <main>
+    <div class="hero">
+      <h1>Tuscaloosa Rescue League</h1>
+      <p>Find your perfect match. Browse available pets, learn our placement process, and help an animal find a forever home.</p>
+      <p><a href="pages/catalog.html" class="btn btn-primary">Browse pets</a></p>
+    </div>
+  </main>
+  <script src="js/auth.js"></script>
+  <script>
+    auth.initNav();
+    const u = auth.getUser();
+    if (u) document.getElementById('userName').textContent = u.email;
+  </script>
+  <footer>
+    <p>Contact • Address • Email • Instagram</p>
+  </footer>
+  <script src="js/main.js?v=trl-1"></script>
+  <script src="js/brand.js?v=trl-1"></script>
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New animal - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="create-animal.html" class="nav-cta">+ New</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>New intake</h1>
+    <p id="needLogin" class="error" style="display:none">Log in as an employee.</p>
+    <form id="form" style="display:none;max-width:480px">
+      <div><label>Name *</label><input name="name" required placeholder="Type a name or use Suggest">
+        <button type="button" id="suggestBtn" class="btn btn-secondary">Suggest name</button>
+        <span id="suggestMsg" style="margin-left:0.5rem;font-size:0.9rem"></span>
+      </div>
+      <div><label>Species *</label><select name="species" required><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div>
+      <div><label>Sex</label><select name="sex"><option value="Unknown">Unknown</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+      <div><label>Status</label><select name="status"><option value="Intake">Intake</option><option value="Adoptable">Adoptable</option><option value="InFoster">In foster</option></select></div>
+      <div><label>Size</label><input name="size"></div>
+      <div><label>Color</label><input name="color"></div>
+      <div><label>Est. age (months)</label><input name="estimatedAgeMonths" type="number" min="0"></div>
+      <div><label>Breed primary</label><input name="breedPrimary"></div>
+      <div><label>Description</label><textarea name="description" rows="3"></textarea></div>
+      <h3>Behavior (optional)</h3>
+      <div><label>Good with kids</label><select name="gwKids"><option value="Unknown">Unknown</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+      <div><label>Good with cats</label><select name="gwCats"><option value="Unknown">Unknown</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+      <div><label>Good with dogs</label><select name="gwDogs"><option value="Unknown">Unknown</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+      <div><label>House trained</label><select name="houseTrained"><option value="Unknown">Unknown</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+      <div><label>Energy</label><select name="energy"><option value="Unknown">Unknown</option><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option></select></div>
+      <div><label>Intake source</label><input name="intakeSource"></div>
+      <div><label>Photo</label><input type="file" name="photo" accept="image/*"></div>
+      <button type="submit" class="btn btn-primary">Create</button>
+      <p id="err" class="error" style="display:none"></p>
+    </form>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    const user = auth.getUser();
+    if (!auth.getToken() || user?.role !== 'Employee') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else {
+      document.getElementById('form').style.display = 'block';
+    }
+    document.getElementById('suggestBtn').onclick = async () => {
+      const f = document.getElementById('form');
+      const msg = document.getElementById('suggestMsg');
+      msg.textContent = '…';
+      const res = await auth.api('/animals/suggest-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          species: f.species.value,
+          sex: f.sex.value,
+          color: f.color.value || null,
+          breedPrimary: f.breedPrimary.value || null
+        })
+      });
+      const data = await res.json();
+      if (data.name) {
+        f.querySelector('input[name=name]').value = data.name;
+        msg.textContent = '';
+      } else {
+        msg.textContent = data.error || 'Try again';
+      }
+    };
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = {
+        name: fd.get('name'),
+        species: fd.get('species'),
+        sex: fd.get('sex'),
+        status: fd.get('status'),
+        size: fd.get('size') || null,
+        color: fd.get('color') || null,
+        estimatedAgeMonths: fd.get('estimatedAgeMonths') ? parseInt(fd.get('estimatedAgeMonths'), 10) : null,
+        breedPrimary: fd.get('breedPrimary') || null,
+        description: fd.get('description') || null,
+        intakeSource: fd.get('intakeSource') || null,
+        behavior: {
+          goodWithKids: fd.get('gwKids'),
+          goodWithCats: fd.get('gwCats'),
+          goodWithDogs: fd.get('gwDogs'),
+          houseTrained: fd.get('houseTrained'),
+          energyLevel: fd.get('energy'),
+          notes: null
+        }
+      };
+      const errEl = document.getElementById('err');
+      errEl.style.display = 'none';
+      const res = await auth.api('/animals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = auth.parseError(data); errEl.style.display = 'block'; return; }
+      const file = fd.get('photo');
+      if (file && file.size) {
+        const up = new FormData();
+        up.append('file', file);
+        await auth.api(`/animals/${encodeURIComponent(data.publicId)}/photos?primary=true`, { method: 'POST', body: up });
+      }
+      location.href = 'animal.html?publicId=' + encodeURIComponent(data.publicId);
+    };
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pet - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group">
+        <a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a>
+        <span id="empNav" class="hidden"><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="placements.html">Placements</a><a href="manage-outreach.html">Manage events</a></span>
+        <span id="appNav" class="hidden"><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a></span>
+      </span>
+      <span class="nav-group">
+        <span id="authLinks"><a href="login.html" class="nav-cta">Login</a><a href="register.html" class="nav-cta">Sign Up</a></span>
+        <span id="userSpan" class="hidden">Welcome, <span id="userName"></span> <button id="navLogout" class="btn">Logout</button></span>
+      </span>
+    </nav>
+  </header>
+  <main id="main">
+    <p id="loading">Loading…</p>
+    <div id="content" class="hidden"></div>
+    <p id="err" class="error hidden"></p>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    auth.initNav();
+    const u = auth.getUser();
+    if (u) document.getElementById('userName').textContent = u.email;
+    const params = new URLSearchParams(location.search);
+    const publicId = params.get('publicId');
+    (async () => {
+      if (!publicId) { document.getElementById('err').textContent = 'Missing publicId'; document.getElementById('err').classList.remove('hidden'); document.getElementById('loading').classList.add('hidden'); return; }
+      const res = await fetch(`${API_BASE}/animals/${encodeURIComponent(publicId)}`);
+      document.getElementById('loading').classList.add('hidden');
+      if (!res.ok) { document.getElementById('err').textContent = 'Not found'; document.getElementById('err').classList.remove('hidden'); return; }
+      const a = await res.json();
+      const photos = (a.photos || []).map(p => `${API_ORIGIN}${p.url}`);
+      const b = a.behavior;
+      const ir = await fetch(`${API_BASE}/animals/${encodeURIComponent(publicId)}/intakes`);
+      const intakes = ir.ok ? await ir.json() : [];
+      const intakeHtml = intakes.length
+        ? `<div class="panel"><h3 class="section-title">Intake history</h3><ul>${intakes.map(i => `<li>${new Date(i.intakeDate).toLocaleDateString()} — ${i.source || '—'} ${i.notes ? '<br><small>' + i.notes + '</small>' : ''}</li>`).join('')}</ul></div>`
+        : '';
+      document.getElementById('content').classList.remove('hidden');
+      document.getElementById('content').innerHTML = `
+        <div class="detail-main">
+          <h1>${a.name}</h1>
+          <p class="detail-id">${a.publicId}</p>
+        </div>
+        <div class="detail">
+          <div class="gallery">${photos.length ? photos.map(u => `<img src="${u}" alt="">`).join('') : '<p class="gallery-empty">No photos yet.</p>'}</div>
+          <div class="stack">
+            <p class="badge-row"><span class="badge">${a.species}</span><span class="badge">${a.sex}</span><span class="badge">${a.status}</span></p>
+            <div class="panel meta-list">
+              <p><strong>Breed:</strong> ${[a.breedPrimary, a.breedSecondary].filter(Boolean).join(' / ') || 'Unknown'}</p>
+              <p><strong>Age:</strong> ${a.estimatedAgeMonths != null ? a.estimatedAgeMonths + ' months (est.)' : 'Unknown'}</p>
+              <p><strong>Size / color:</strong> ${a.size || '—'} · ${a.color || '—'}</p>
+              <p><strong>Intake:</strong> ${new Date(a.intakeDate).toLocaleDateString()}</p>
+            </div>
+            ${a.description ? `<p class="panel">${a.description}</p>` : ''}
+            ${b ? `<div class="panel"><h3 class="section-title">Behavior</h3>
+              <p>Kids: ${b.goodWithKids} · Cats: ${b.goodWithCats} · Dogs: ${b.goodWithDogs}<br>
+              House trained: ${b.houseTrained} · Energy: ${b.energyLevel}</p>
+              <p>${b.notes || ''}</p></div>` : ''}
+            ${intakeHtml}
+            <p id="applyBox" class="actions-inline"></p>
+          </div>
+        </div>`;
+      if (auth.getUser()?.role === 'Employee') {
+        document.getElementById('applyBox').innerHTML = '<a href="edit-animal.html?publicId=' + encodeURIComponent(publicId) + '" class="btn btn-primary">Edit</a><button type="button" id="delBtn" class="btn btn-danger">Delete</button><span id="delMsg" class="status-text"></span>';
+        document.getElementById('delBtn').onclick = async () => {
+          if (!confirm('Permanently delete this animal? This cannot be undone.')) return;
+          const res = await auth.api('/animals/' + encodeURIComponent(publicId), { method: 'DELETE' });
+          if (res.ok) location.href = 'employee-animals.html';
+          else { const j = await res.json().catch(() => ({})); document.getElementById('delMsg').textContent = j.error || 'Delete failed'; }
+        };
+      }
+      if (auth.getUser()?.role === 'Applicant' && publicId) {
+        if (a.status === 'Adopted') {
+          document.getElementById('applyBox').innerHTML = '<p class="badge status-adopted">This pet has been adopted</p>';
+        } else {
+          document.getElementById('applyBox').innerHTML = '<button type="button" id="applyBtn" class="btn btn-primary">Apply to adopt</button><span id="applyMsg" class="status-text"></span>';
+          document.getElementById('applyBtn').onclick = async () => {
+            const res = await auth.api('/applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ animalPublicId: publicId }) });
+            const j = await res.json().catch(() => ({}));
+            document.getElementById('applyMsg').textContent = res.ok ? 'Application submitted!' : (j.error || res.status);
+          };
+        }
+      }
+    })();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My profile - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a><a href="my-profile.html">Profile</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Household profile</h1>
+    <p id="needLogin" class="error" style="display:none">Applicant login required.</p>
+    <form id="form" style="display:none;max-width:480px">
+      <div><label>First name</label><input name="firstName" required></div>
+      <div><label>Last name</label><input name="lastName" required></div>
+      <div><label>Email</label><input name="email" type="email"></div>
+      <div><label>Phone</label><input name="phone"></div>
+      <div><label>Address</label><input name="addressLine1"></div>
+      <div><label>City</label><input name="city"></div>
+      <div><label>State</label><input name="state"></div>
+      <div><label>ZIP</label><input name="postalCode"></div>
+      <div><label>Kids in home?</label><select name="hasKids"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+      <div><label>Cats in home?</label><select name="hasCats"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+      <div><label>Dogs in home?</label><select name="hasDogs"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+      <div><label>Yard?</label><select name="hasYard"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+      <div><label>Housing</label><input name="housingType" placeholder="Apartment, house…"></div>
+      <div><label>Pet experience</label><input name="experienceLevel" placeholder="First-time, experienced…"></div>
+      <button type="submit" class="btn btn-primary">Save</button>
+      <p id="msg" style="margin-top:0.5rem"></p>
+    </form>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    function tri(name, v) {
+      const el = document.querySelector(`[name=${name}]`);
+      if (v === true) el.value = 'true';
+      else if (v === false) el.value = 'false';
+      else el.value = '';
+    }
+    function bodyFromForm(f) {
+      const o = (name) => { const v = f[name].value; return v === '' ? null : v; };
+      return {
+        firstName: f.firstName.value || null,
+        lastName: f.lastName.value || null,
+        email: o('email'),
+        phone: o('phone'),
+        addressLine1: o('addressLine1'),
+        city: o('city'),
+        state: o('state'),
+        postalCode: o('postalCode'),
+        hasKids: document.querySelector('[name=hasKids]').value === '' ? null : document.querySelector('[name=hasKids]').value === 'true',
+        hasCats: document.querySelector('[name=hasCats]').value === '' ? null : document.querySelector('[name=hasCats]').value === 'true',
+        hasDogs: document.querySelector('[name=hasDogs]').value === '' ? null : document.querySelector('[name=hasDogs]').value === 'true',
+        hasYard: document.querySelector('[name=hasYard]').value === '' ? null : document.querySelector('[name=hasYard]').value === 'true',
+        housingType: o('housingType'),
+        experienceLevel: o('experienceLevel')
+      };
+    }
+    if (!auth.getToken() || auth.getUser()?.role !== 'Applicant') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else {
+      document.getElementById('form').style.display = 'block';
+      (async () => {
+        const res = await auth.api('/me/applicant');
+        const p = await res.json();
+        if (!res.ok) return;
+        const f = document.getElementById('form');
+        f.firstName.value = p.firstName;
+        f.lastName.value = p.lastName;
+        f.email.value = p.email || '';
+        f.phone.value = p.phone || '';
+        f.addressLine1.value = p.addressLine1 || '';
+        f.city.value = p.city || '';
+        f.state.value = p.state || '';
+        f.postalCode.value = p.postalCode || '';
+        tri('hasKids', p.hasKids);
+        tri('hasCats', p.hasCats);
+        tri('hasDogs', p.hasDogs);
+        tri('hasYard', p.hasYard);
+        f.housingType.value = p.housingType || '';
+        f.experienceLevel.value = p.experienceLevel || '';
+      })();
+      document.getElementById('form').onsubmit = async (e) => {
+        e.preventDefault();
+        const res = await auth.api('/me/applicant', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyFromForm(e.target)) });
+        document.getElementById('msg').textContent = res.ok ? 'Saved.' : await res.text();
+      };
+    }
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

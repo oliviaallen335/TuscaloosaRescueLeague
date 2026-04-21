@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalog - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group">
+        <a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a>
+        <span id="empNav" class="hidden"><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="placements.html">Placements</a><a href="manage-outreach.html">Manage events</a></span>
+        <span id="appNav" class="hidden"><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a></span>
+      </span>
+      <span class="nav-group">
+        <span id="authLinks"><a href="login.html" class="nav-cta">Login</a><a href="register.html" class="nav-cta">Sign Up</a></span>
+        <span id="userSpan" class="hidden">Welcome, <span id="userName"></span> <button id="navLogout" class="btn">Logout</button></span>
+      </span>
+    </nav>
+  </header>
+  <main>
+    <h1>Available pets</h1>
+    <p class="page-intro">Filter by species, status, or name to quickly find the right pet.</p>
+    <div class="filters panel">
+      <div><label>Species</label>
+        <select id="species"><option value="">Any</option><option value="Dog">Dog</option><option value="Cat">Cat</option></select>
+      </div>
+      <div><label>Status</label>
+        <select id="status"></select>
+      </div>
+      <div><label>Search</label><input type="search" id="search" placeholder="Name, ID, breed"></div>
+      <div><button type="button" id="apply" class="btn btn-primary">Apply</button></div>
+    </div>
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="empty-state hidden">No animals match.</p>
+  </main>
+  <footer><p>Contact • Address • Email • Instagram</p></footer>
+  <script src="../js/auth.js"></script>
+  <script>
+    auth.initNav();
+    const u = auth.getUser();
+    if (u) document.getElementById('userName').textContent = u.email;
+    const grid = document.getElementById('grid');
+    const empty = document.getElementById('empty');
+
+    const statusSel = document.getElementById('status');
+    const isEmployee = u?.role === 'Employee';
+    statusSel.innerHTML = (isEmployee
+      ? ['', 'Intake', 'InFoster', 'Adoptable', 'Adopted', 'Hold', 'MedicalHold']
+      : ['', 'Adoptable', 'InFoster'])
+      .map((v, i) => {
+        const labels = { '': isEmployee ? 'All' : 'Any available', Intake: 'Intake', InFoster: 'In foster', Adoptable: 'Adoptable', Adopted: 'Adopted', Hold: 'Hold', MedicalHold: 'Medical hold' };
+        return `<option value="${v}">${labels[v] || v}</option>`;
+      }).join('');
+
+    async function load() {
+      const sp = new URLSearchParams();
+      const s = document.getElementById('species').value;
+      const st = document.getElementById('status').value;
+      const q = document.getElementById('search').value.trim();
+      if (s) sp.set('species', s);
+      if (st) sp.set('status', st);
+      if (q) sp.set('search', q);
+      const res = await auth.api(`/animals?${sp}`);
+      const list = await res.json();
+      grid.innerHTML = '';
+      empty.classList.toggle('hidden', list.length > 0);
+      for (const a of list) {
+        const img = a.primaryPhotoUrl ? `${API_ORIGIN}${a.primaryPhotoUrl}` : '';
+        const age = a.estimatedAgeMonths != null ? `${Math.floor(a.estimatedAgeMonths / 12) || '?'} yr` : 'Age unknown';
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.innerHTML = `
+          ${img ? `<img src="${img}" alt="">` : '<div class="card-img-placeholder"></div>'}
+          <div class="card-body">
+            <strong><a href="animal.html?publicId=${encodeURIComponent(a.publicId)}">${a.name}</a></strong><br>
+            <small>${a.species} · ${a.sex} · ${a.status}<br>${a.breedPrimary || 'Breed unknown'} · ${age}<br>ID: ${a.publicId}</small>
+          </div>`;
+        grid.appendChild(el);
+      }
+    }
+    document.getElementById('apply').onclick = load;
+    load();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+
+

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Events - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group">
+        <a href="../index.html">Home</a>
+        <a href="catalog.html">Catalog</a>
+        <a href="outreach.html">Events</a>
+        <a href="faq.html">FAQ</a>
+        <span id="empNav" class="hidden"><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="placements.html">Placements</a><a href="manage-outreach.html">Manage events</a></span>
+        <span id="appNav" class="hidden"><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a></span>
+      </span>
+      <span class="nav-group">
+        <span id="authLinks"><a href="login.html" class="nav-cta">Login</a><a href="register.html" class="nav-cta">Sign Up</a></span>
+        <span id="userSpan" class="hidden">Welcome, <span id="userName"></span> <button id="navLogout" class="btn">Logout</button></span>
+      </span>
+    </nav>
+  </header>
+  <main>
+    <h1>Events calendar</h1>
+    <div id="calendarSection" class="calendar-wrap" style="display:none">
+      <div class="calendar">
+        <div class="calendar-header">
+          <h2 id="calMonthLabel">Month Year</h2>
+          <div class="calendar-nav">
+            <button type="button" id="calPrev" class="btn btn-secondary">←</button>
+            <button type="button" id="calToday" class="btn btn-secondary">Today</button>
+            <button type="button" id="calNext" class="btn btn-secondary">→</button>
+          </div>
+        </div>
+        <div class="calendar-grid" id="calGrid"></div>
+      </div>
+      <div class="calendar-events">
+        <h3 id="eventsTitle">Events this month</h3>
+        <div id="eventsList"></div>
+      </div>
+    </div>
+    <p id="empty" class="empty-state" style="display:none">No upcoming events.</p>
+  </main>
+  <footer><p>Contact • Address • Email • Instagram</p></footer>
+  <script src="../js/auth.js"></script>
+  <script>
+    auth.initNav();
+    const u = auth.getUser();
+    if (u) document.getElementById('userName').textContent = u.email;
+
+    let events = [];
+    let viewYear, viewMonth;
+
+    const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    function startOfMonth(y, m) { return new Date(y, m, 1); }
+    function endOfMonth(y, m) { return new Date(y, m + 1, 0); }
+    function toDateKey(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+
+    function eventsOnDate(y, m, day) {
+      const d = new Date(y, m, day);
+      const key = toDateKey(d);
+      return events.filter(e => {
+        const start = e.startDate.slice(0,10);
+        const end = e.endDate ? e.endDate.slice(0,10) : start;
+        return key >= start && key <= end;
+      });
+    }
+
+    function renderCalendar() {
+      const first = startOfMonth(viewYear, viewMonth);
+      const last = endOfMonth(viewYear, viewMonth);
+      const startPad = first.getDay();
+      const daysInMonth = last.getDate();
+      const today = new Date();
+      const todayKey = toDateKey(today);
+
+      document.getElementById('calMonthLabel').textContent = first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      let html = DAYS.map(d => `<div class="calendar-day-label">${d}</div>`).join('');
+      for (let i = 0; i < startPad; i++) {
+        const prev = new Date(viewYear, viewMonth, -startPad + i + 1);
+        const evts = eventsOnDate(prev.getFullYear(), prev.getMonth(), prev.getDate());
+        const cls = ['calendar-cell','other-month'].concat(evts.length ? ['has-events'] : []).join(' ');
+        html += `<div class="${cls}"><span class="day-num">${prev.getDate()}</span>${evts.length ? '<span class="event-dot"></span>'.repeat(Math.min(evts.length,3)) : ''}</div>`;
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = viewYear + '-' + String(viewMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+        const evts = eventsOnDate(viewYear, viewMonth, d);
+        const cls = ['calendar-cell'].concat(key === todayKey ? ['today'] : []).concat(evts.length ? ['has-events'] : []).join(' ');
+        html += `<div class="${cls}"><span class="day-num">${d}</span>${evts.length ? '<span class="event-dot"></span>'.repeat(Math.min(evts.length,3)) : ''}</div>`;
+      }
+      const remaining = 42 - (startPad + daysInMonth);
+      for (let i = 0; i < remaining; i++) {
+        const next = new Date(viewYear, viewMonth + 1, i + 1);
+        const evts = eventsOnDate(next.getFullYear(), next.getMonth(), next.getDate());
+        const cls = ['calendar-cell','other-month'].concat(evts.length ? ['has-events'] : []).join(' ');
+        html += `<div class="${cls}"><span class="day-num">${next.getDate()}</span>${evts.length ? '<span class="event-dot"></span>'.repeat(Math.min(evts.length,3)) : ''}</div>`;
+      }
+      document.getElementById('calGrid').innerHTML = html;
+    }
+
+    function renderEvents() {
+      const monthEvents = events.filter(e => {
+        const start = new Date(e.startDate);
+        return start.getFullYear() === viewYear && start.getMonth() === viewMonth;
+      }).sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
+
+      document.getElementById('eventsTitle').textContent = 'Events this month';
+      const list = document.getElementById('eventsList');
+      if (!monthEvents.length) {
+        list.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem">No events this month.</p>';
+      } else {
+        list.innerHTML = monthEvents.map(e => {
+          const start = new Date(e.startDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+          const end = e.endDate ? ' – ' + new Date(e.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+          const meta = [e.type, e.location].filter(Boolean).join(' · ');
+          const link = e.url ? ` <a href="${e.url}" target="_blank" rel="noopener">More info</a>` : '';
+          return `<div class="event"><h4 style="margin:0 0 0.25rem 0;font-size:1rem">${e.title}</h4><div class="meta">${start}${end} ${meta ? '· ' + meta : ''}</div>${e.description ? '<p style="margin:0.5rem 0 0 0;font-size:0.9rem">' + e.description + '</p>' : ''}${link}</div>`;
+        }).join('');
+      }
+    }
+
+    function goPrev() { viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; } render(); }
+    function goNext() { viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; } render(); }
+    function goToday() { const t = new Date(); viewYear = t.getFullYear(); viewMonth = t.getMonth(); render(); }
+    function render() { renderCalendar(); renderEvents(); }
+
+    (async () => {
+      const res = await fetch(`${API_BASE}/outreach`);
+      events = await res.json();
+      const now = new Date();
+      viewYear = now.getFullYear();
+      viewMonth = now.getMonth();
+
+      if (events.length) {
+        document.getElementById('calendarSection').style.display = 'grid';
+        document.getElementById('empty').style.display = 'none';
+        render();
+        document.getElementById('calPrev').onclick = goPrev;
+        document.getElementById('calNext').onclick = goNext;
+        document.getElementById('calToday').onclick = goToday;
+      } else {
+        document.getElementById('empty').style.display = 'block';
+      }
+    })();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+
+
