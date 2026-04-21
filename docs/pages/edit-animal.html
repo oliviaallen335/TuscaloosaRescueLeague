@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit animal - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Edit animal</h1>
+    <p id="needLogin" style="display:none;color:#e76">Log in as an employee.</p>
+    <form id="form" style="display:none;max-width:480px">
+      <input type="hidden" name="publicId">
+      <div><label>Name *</label><input name="name" required placeholder="Type a name or use Suggest">
+        <button type="button" id="suggestBtn">Suggest name</button>
+        <span id="suggestMsg" style="margin-left:0.5rem;font-size:0.9rem"></span>
+      </div>
+      <div><label>Species *</label><select name="species" required><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div>
+      <div><label>Sex</label><select name="sex"><option value="Unknown">Unknown</option><option value="Male">Male</option><option value="Female">Female</option></select></div>
+      <div><label>Status</label><select name="status" id="statusSel" required></select></div>
+      <div><label>Intake date</label><input name="intakeDate" type="date" required></div>
+      <div><label>Size</label><input name="size"></div>
+      <div><label>Color</label><input name="color"></div>
+      <div><label>Est. age (months)</label><input name="estimatedAgeMonths" type="number" min="0"></div>
+      <div><label>Breed primary</label><input name="breedPrimary"></div>
+      <div><label>Breed secondary</label><input name="breedSecondary"></div>
+      <div><label>Description</label><textarea name="description" rows="3"></textarea></div>
+      <h3>Photo</h3>
+      <div id="photoPreview" style="margin-bottom:0.75rem"></div>
+      <div><label>Replace primary photo</label><input type="file" name="photo" accept="image/*">
+        <small style="display:block;margin-top:0.25rem">Uploads when you click Save. Any previous photos for this animal are removed from the database and disk; the new file is the only catalog image.</small>
+      </div>
+      <h3>Behavior</h3>
+      <div><label>Good with kids</label><select name="gwKids" id="gwKids"></select></div>
+      <div><label>Good with cats</label><select name="gwCats" id="gwCats"></select></div>
+      <div><label>Good with dogs</label><select name="gwDogs" id="gwDogs"></select></div>
+      <div><label>House trained</label><select name="houseTrained" id="ht"></select></div>
+      <div><label>Energy</label><select name="energy" id="energy"></select></div>
+      <button type="submit" class="btn btn-primary">Save</button>
+      <button type="button" id="delBtn" class="btn btn-danger" style="margin-left:1rem">Delete animal</button>
+      <p id="err" class="error" style="display:none"></p>
+    </form>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    const statuses = ['Intake','InFoster','Adoptable','Adopted','Hold','MedicalHold'];
+    const tri = ['Unknown','Yes','No'];
+    const energy = ['Unknown','Low','Medium','High'];
+    function fillSelect(sel, opts, val) {
+      sel.innerHTML = opts.map(o => `<option value="${o}" ${o===val?'selected':''}>${o}</option>`).join('');
+    }
+    const params = new URLSearchParams(location.search);
+    const publicId = params.get('publicId');
+    if (!auth.getToken() || auth.getUser()?.role !== 'Employee') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else if (!publicId) {
+      document.getElementById('needLogin').textContent = 'Missing publicId'; document.getElementById('needLogin').style.display = 'block';
+    } else {
+      document.getElementById('form').style.display = 'block';
+      (async () => {
+        const res = await fetch(`${API_BASE}/animals/${encodeURIComponent(publicId)}`);
+        const a = await res.json();
+        if (!res.ok) { document.getElementById('needLogin').textContent = 'Not found'; document.getElementById('needLogin').style.display = 'block'; document.getElementById('form').style.display = 'none'; return; }
+        const f = document.getElementById('form');
+        f.publicId.value = a.publicId;
+        f.name.value = a.name;
+        f.species.value = a.species;
+        fillSelect(document.getElementById('statusSel'), statuses, a.status);
+        f.sex.value = a.sex;
+        f.intakeDate.value = a.intakeDate.slice(0, 10);
+        f.size.value = a.size || '';
+        f.color.value = a.color || '';
+        f.estimatedAgeMonths.value = a.estimatedAgeMonths ?? '';
+        f.breedPrimary.value = a.breedPrimary || '';
+        f.breedSecondary.value = a.breedSecondary || '';
+        f.description.value = a.description || '';
+        const b = a.behavior || {};
+        fillSelect(document.getElementById('gwKids'), tri, b.goodWithKids || 'Unknown');
+        fillSelect(document.getElementById('gwCats'), tri, b.goodWithCats || 'Unknown');
+        fillSelect(document.getElementById('gwDogs'), tri, b.goodWithDogs || 'Unknown');
+        fillSelect(document.getElementById('ht'), tri, b.houseTrained || 'Unknown');
+        fillSelect(document.getElementById('energy'), energy, b.energyLevel || 'Unknown');
+        const photos = a.photos || [];
+        const prim = photos.find(p => p.isPrimary) || photos[0];
+        const prev = document.getElementById('photoPreview');
+        if (prim) {
+          prev.innerHTML = `<img src="${API_ORIGIN}${prim.url}" alt="" style="max-width:220px;border-radius:8px;border:1px solid #ddd">`;
+        } else {
+          prev.innerHTML = '<p class="empty-state" style="padding:0.5rem">No photo yet — choose a file below.</p>';
+        }
+      })();
+    }
+    document.getElementById('suggestBtn').onclick = async () => {
+      const f = document.getElementById('form');
+      const msg = document.getElementById('suggestMsg');
+      msg.textContent = '…';
+      const res = await auth.api('/animals/suggest-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          species: f.species.value,
+          sex: f.sex.value,
+          color: f.color.value || null,
+          breedPrimary: f.breedPrimary.value || null,
+          excludeAnimalPublicId: f.publicId.value || null
+        })
+      });
+      const data = await res.json();
+      if (data.name) {
+        f.querySelector('input[name=name]').value = data.name;
+        msg.textContent = '';
+      } else {
+        msg.textContent = data.error || 'Try again';
+      }
+    };
+    document.getElementById('delBtn').onclick = async () => {
+      const pid = document.getElementById('form').publicId.value;
+      if (!confirm('Permanently delete this animal? This cannot be undone.')) return;
+      const res = await auth.api('/animals/' + encodeURIComponent(pid), { method: 'DELETE' });
+      if (res.ok) location.href = 'employee-animals.html';
+      else { const j = await res.json().catch(() => ({})); document.getElementById('err').textContent = j.error || 'Delete failed'; document.getElementById('err').style.display = 'block'; }
+    };
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const pid = f.publicId.value;
+      const body = {
+        name: f.name.value,
+        species: f.species.value,
+        sex: f.sex.value,
+        status: f.status.value,
+        intakeDate: new Date(f.intakeDate.value + 'T12:00:00Z').toISOString(),
+        size: f.size.value || null,
+        color: f.color.value || null,
+        estimatedAgeMonths: f.estimatedAgeMonths.value ? parseInt(f.estimatedAgeMonths.value, 10) : null,
+        breedPrimary: f.breedPrimary.value || null,
+        breedSecondary: f.breedSecondary.value || null,
+        description: f.description.value || null,
+        behavior: {
+          goodWithKids: f.gwKids.value,
+          goodWithCats: f.gwCats.value,
+          goodWithDogs: f.gwDogs.value,
+          houseTrained: f.houseTrained.value,
+          energyLevel: f.energy.value,
+          notes: null
+        }
+      };
+      const errEl = document.getElementById('err');
+      errEl.style.display = 'none';
+      const res = await auth.api(`/animals/${encodeURIComponent(pid)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = auth.parseError(data); errEl.style.display = 'block'; return; }
+      const file = f.photo.files[0];
+      if (file && file.size) {
+        const up = new FormData();
+        up.append('file', file);
+        const upRes = await auth.api(`/animals/${encodeURIComponent(data.publicId)}/photos?primary=true`, { method: 'POST', body: up });
+        if (!upRes.ok) {
+          const uj = await upRes.json().catch(() => ({}));
+          errEl.textContent = 'Animal saved, but photo upload failed: ' + (auth.parseError(uj) || upRes.status);
+          errEl.style.display = 'block';
+          return;
+        }
+      }
+      location.href = 'animal.html?publicId=' + encodeURIComponent(data.publicId);
+    };
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

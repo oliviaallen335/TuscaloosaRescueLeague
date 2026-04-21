@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Find your match - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Find your perfect match</h1>
+    <p id="needLogin" class="error hidden">Log in as an applicant to run the matcher.</p>
+    <div id="formSection" class="hidden panel">
+      <p class="page-intro">Uses your <a href="my-profile.html">saved profile</a> for any field you leave on “Use profile”. Matching uses vector similarity on household + pet traits (plus safety rules), then always generates an AI explanation.</p>
+      <form id="matchForm" class="match-form grid-2">
+        <div class="row"><label>Preferred species</label>
+          <select name="preferredSpecies"><option value="">Any</option><option value="Dog">Dog</option><option value="Cat">Cat</option></select></div>
+        <div class="row"><label>Exercise you can offer (max comfortable)</label>
+          <select name="maxEnergyComfort"><option value="">Unknown / no preference</option><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option></select></div>
+        <div class="row"><label>Kids in home</label>
+          <select name="hasKids"><option value="">Use profile</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="row"><label>If kids are in home, are they gentle with animals already?</label>
+          <select name="kidsAreAnimalSavvy"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="row"><label>Cats in home</label>
+          <select name="hasCats"><option value="">Use profile</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="row"><label>Dogs in home</label>
+          <select name="hasDogs"><option value="">Use profile</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="row"><label>Do you have space for a large animal?</label>
+          <select name="hasLargeSpace"><option value="">Unknown</option><option value="true">Yes</option><option value="false">No</option></select></div>
+        <div class="row"><label>Living situation</label>
+          <select name="housingSituation"><option value="">Use profile</option><option value="Apartment">Apartment</option><option value="House">House</option><option value="Other">Other</option></select></div>
+        <div class="row"><label>Household activity level</label>
+          <select name="dailyActivityLevel"><option value="">Unknown</option><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option></select></div>
+        <div class="row"><label>Noise tolerance at home</label>
+          <select name="noiseTolerance"><option value="">Unknown</option><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option></select></div>
+        <div class="row"><label>Pet experience</label>
+          <select name="experienceLevel"><option value="">Use profile</option><option value="First-time">First-time</option><option value="Some experience">Some experience</option><option value="Very experienced">Very experienced</option></select></div>
+        <div class="row actions-inline"><button type="submit" class="btn btn-primary">Run match</button></div>
+      </form>
+    </div>
+    <div id="out" class="hidden section-gap">
+      <h2 class="section-title">Results</h2>
+      <p id="narNote" class="error hidden"></p>
+      <div id="narrative" class="narrative hidden"></div>
+      <div id="list"></div>
+    </div>
+  </main>
+  <footer><p>Contact • Address • Email • Instagram</p></footer>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    if (!auth.getToken() || auth.getUser()?.role !== 'Applicant') {
+      document.getElementById('needLogin').classList.remove('hidden');
+    } else {
+      document.getElementById('formSection').classList.remove('hidden');
+    }
+    function boolOrNull(name) {
+      const el = document.querySelector(`[name="${name}"]`);
+      if (!el || el.value === '') return null;
+      return el.value === 'true';
+    }
+    document.getElementById('matchForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const species = document.querySelector('[name=preferredSpecies]').value;
+      const maxE = document.querySelector('[name=maxEnergyComfort]').value;
+      const answers = {
+        preferredSpecies: species === '' ? null : species,
+        maxEnergyComfort: maxE === '' ? null : maxE,
+        hasKids: boolOrNull('hasKids'),
+        hasCats: boolOrNull('hasCats'),
+        hasDogs: boolOrNull('hasDogs'),
+        kidsAreAnimalSavvy: boolOrNull('kidsAreAnimalSavvy'),
+        hasLargeSpace: boolOrNull('hasLargeSpace'),
+        housingSituation: document.querySelector('[name=housingSituation]').value || null,
+        experienceLevel: document.querySelector('[name=experienceLevel]').value || null,
+        dailyActivityLevel: document.querySelector('[name=dailyActivityLevel]').value || null,
+        noiseTolerance: document.querySelector('[name=noiseTolerance]').value || null
+      };
+      const res = await auth.api('/match/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers, includeNarrative: true })
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(auth.parseError(data)); return; }
+      document.getElementById('out').classList.remove('hidden');
+      const note = document.getElementById('narNote');
+      const nar = document.getElementById('narrative');
+      if (data.narrative) {
+        nar.classList.remove('hidden');
+        nar.textContent = data.narrative;
+        note.classList.add('hidden');
+      } else if (data.narrativeNote) {
+        note.classList.remove('hidden');
+        note.textContent = data.narrativeNote;
+        nar.classList.add('hidden');
+      } else {
+        note.classList.add('hidden');
+        nar.classList.add('hidden');
+      }
+      document.getElementById('list').innerHTML = (data.matches || []).map(m => {
+        const img = m.primaryPhotoUrl ? `${API_ORIGIN}${m.primaryPhotoUrl}` : '';
+        return `<div class="result">
+          ${img ? `<img src="${img}" alt="">` : '<div class="result-placeholder"></div>'}
+          <div>
+            <strong><a href="animal.html?publicId=${encodeURIComponent(m.publicId)}">${m.name}</a></strong>
+            (${m.species}) · Score: <strong>${m.score}</strong><br>
+            <small>${(m.reasons || []).join(' · ')}</small><br>
+            <details><summary>Score breakdown</summary><small>${(m.scoreBreakdown || []).join('<br>')}</small></details>
+          </div>
+        </div>`;
+      }).join('') || '<p>No matches (try relaxing species filter or update profile).</p>';
+      document.getElementById('out').scrollIntoView({ behavior: 'smooth' });
+    };
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

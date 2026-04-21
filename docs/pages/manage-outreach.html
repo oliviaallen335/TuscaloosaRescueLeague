@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage events - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="employee-applications.html">Applications</a><a href="placements.html">Placements</a><a href="outreach.html">Events</a><a href="manage-outreach.html">Manage events</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Manage events</h1>
+    <p id="needLogin" style="display:none;color:#e76">Employee login required.</p>
+    <div id="app" style="display:none">
+      <h2>Create event</h2>
+      <form id="form">
+        <div><label>Title *</label><input name="title" required></div>
+        <div><label>Type</label><select name="type"><option value="Event">Event</option><option value="Campaign">Campaign</option></select></div>
+        <div><label>Description</label><textarea name="description" rows="3"></textarea></div>
+        <div><label>Start date *</label><input name="startDate" type="date" required></div>
+        <div><label>End date</label><input name="endDate" type="date"></div>
+        <div><label>Location</label><input name="location"></div>
+        <div><label>URL (external link)</label><input name="url" type="url" placeholder="https://"></div>
+        <div><label><input name="isPublished" type="checkbox"> Published (visible on public Events page)</label></div>
+        <button type="submit" class="btn btn-primary">Create</button>
+        <p id="err" class="error" style="display:none"></p>
+      </form>
+      <h2>All events</h2>
+      <div id="list" class="events"></div>
+    </div>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    if (!auth.getToken() || auth.getUser()?.role !== 'Employee') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else {
+      document.getElementById('app').style.display = 'block';
+      document.querySelector('[name=startDate]').value = new Date().toISOString().slice(0, 10);
+    }
+    async function load() {
+      const res = await auth.api('/outreach/all');
+      const list = await res.json();
+      const el = document.getElementById('list');
+      el.innerHTML = list.length ? list.map(e => {
+        const start = new Date(e.startDate).toLocaleDateString();
+        const end = e.endDate ? ' – ' + new Date(e.endDate).toLocaleDateString() : '';
+        const draft = !e.isPublished ? '<span class="draft">(draft)</span>' : '';
+        return `<div class="event event-row" data-id="${e.id}">
+          <div>
+            <strong>${e.title}</strong>${draft} — ${e.type}<br>
+            <small>${start}${end} ${e.location || ''}</small>
+          </div>
+          <div>
+            <button type="button" class="btn editBtn" data-id="${e.id}">Edit</button>
+            <button type="button" class="btn btn-danger delBtn" data-id="${e.id}">Delete</button>
+          </div>
+        </div>`;
+      }).join('') : '<p>No events yet.</p>';
+
+      el.querySelectorAll('.editBtn').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.id;
+          const ev = list.find(x => x.id === parseInt(id, 10));
+          if (!ev) return;
+          document.getElementById('form').dataset.editId = id;
+          document.querySelector('[name=title]').value = ev.title;
+          document.querySelector('[name=type]').value = ev.type;
+          document.querySelector('[name=description]').value = ev.description || '';
+          document.querySelector('[name=startDate]').value = ev.startDate.slice(0, 10);
+          document.querySelector('[name=endDate]').value = ev.endDate ? ev.endDate.slice(0, 10) : '';
+          document.querySelector('[name=location]').value = ev.location || '';
+          document.querySelector('[name=url]').value = ev.url || '';
+          document.querySelector('[name=isPublished]').checked = ev.isPublished;
+          document.querySelector('#form button[type=submit]').textContent = 'Update';
+          document.getElementById('form').scrollIntoView();
+        };
+      });
+      el.querySelectorAll('.delBtn').forEach(btn => {
+        btn.onclick = async () => {
+          if (!confirm('Delete this event?')) return;
+          const res = await auth.api('/outreach/' + btn.dataset.id, { method: 'DELETE' });
+          if (res.ok) load(); else alert('Delete failed');
+        };
+      });
+    }
+    document.getElementById('form').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const body = {
+        title: f.title.value,
+        type: f.type.value,
+        description: f.description.value || null,
+        startDate: new Date(f.startDate.value + 'T12:00:00Z').toISOString(),
+        endDate: f.endDate.value ? new Date(f.endDate.value + 'T12:00:00Z').toISOString() : null,
+        location: f.location.value || null,
+        url: f.url.value || null,
+        isPublished: f.isPublished.checked
+      };
+      const editId = f.dataset.editId;
+      const err = document.getElementById('err');
+      err.style.display = 'none';
+      const res = editId
+        ? await auth.api('/outreach/' + editId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        : await auth.api('/outreach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { err.textContent = auth.parseError(data); err.style.display = 'block'; return; }
+      delete f.dataset.editId;
+      f.reset();
+      document.querySelector('[name=startDate]').value = new Date().toISOString().slice(0, 10);
+      document.querySelector('#form button[type=submit]').textContent = 'Create';
+      load();
+    };
+    load();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

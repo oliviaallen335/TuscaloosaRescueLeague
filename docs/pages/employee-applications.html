@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Applications - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="employee-applications.html">Applications</a><a href="placements.html">Placements</a><a href="outreach.html">Events</a><a href="manage-outreach.html">Manage events</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Applications</h1>
+    <p id="needLogin" style="display:none;color:#e76">Employee login required.</p>
+    <div id="app" style="display:none">
+      <p>
+        Status: <select id="fStatus"><option value="Pending" selected>Pending</option><option value="">All</option><option value="Approved">Approved</option><option value="Denied">Denied</option><option value="Withdrawn">Withdrawn</option></select>
+        Animal ID: <input id="fPid" placeholder="D-…">
+        <button type="button" id="reload">Load</button>
+      </p>
+      <table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;max-width:1000px">
+        <thead><tr><th>ID</th><th>Applicant</th><th>Animal</th><th>Status</th><th>Submitted</th><th>Review</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    if (!auth.getToken() || auth.getUser()?.role !== 'Employee') {
+      document.getElementById('needLogin').style.display = 'block';
+    } else document.getElementById('app').style.display = 'block';
+
+    async function load() {
+      const sp = new URLSearchParams();
+      const st = document.getElementById('fStatus').value;
+      const pid = document.getElementById('fPid').value.trim();
+      if (st) sp.set('status', st);
+      if (pid) sp.set('animalPublicId', pid);
+      const res = await auth.api('/applications?' + sp);
+      const list = await res.json();
+      document.getElementById('rows').innerHTML = list.map(a => `
+        <tr>
+          <td>${a.id}</td>
+          <td>#${a.applicantId} ${a.applicantName}</td>
+          <td><a href="animal.html?publicId=${encodeURIComponent(a.animalPublicId)}">${a.animalName}</a><br><small>${a.animalPublicId}</small></td>
+          <td>${a.status}</td>
+          <td>${new Date(a.submittedAt).toLocaleString()}</td>
+          <td>
+            ${a.status === 'Pending' ? `<button type="button" data-id="${a.id}" class="ap">Approve</button>
+            <button type="button" data-id="${a.id}" class="dn">Deny</button>
+            <button type="button" data-id="${a.id}" class="wd">Withdraw</button>` : '—'}
+          </td>
+        </tr>`).join('');
+      document.querySelectorAll('.ap').forEach(b => b.onclick = () => review(b.dataset.id, 'Approved'));
+      document.querySelectorAll('.dn').forEach(b => b.onclick = () => review(b.dataset.id, 'Denied'));
+      document.querySelectorAll('.wd').forEach(b => b.onclick = () => review(b.dataset.id, 'Withdrawn'));
+    }
+    async function review(id, status) {
+      const notes = prompt('Notes (optional)') || '';
+      const res = await auth.api('/applications/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, notes: notes || null })
+      });
+      if (!res.ok) alert(await res.text()); else load();
+    }
+    document.getElementById('reload').onclick = load;
+    if (auth.getUser()?.role === 'Employee') load();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+

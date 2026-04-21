@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group">
+        <a href="../index.html">Home</a><a href="catalog.html">Catalog</a><a href="outreach.html">Events</a><a href="faq.html">FAQ</a>
+        <span id="empNav" class="hidden"><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="placements.html">Placements</a><a href="manage-outreach.html">Manage events</a></span>
+        <span id="appNav" class="hidden"><span class="nav-divider"></span><a href="applicant-dashboard.html">My account</a><a href="match.html">Find match</a></span>
+      </span>
+      <span class="nav-group">
+        <span id="authLinks"><a href="login.html" class="nav-cta">Login</a><a href="register.html" class="nav-cta">Sign Up</a></span>
+        <span id="userSpan" class="hidden">Welcome, <span id="userName"></span> <button id="navLogout" class="btn">Logout</button></span>
+      </span>
+    </nav>
+  </header>
+  <main>
+    <h1>Login</h1>
+    <form id="loginForm">
+      <div>
+        <label>Email</label>
+        <input type="email" name="email" required>
+      </div>
+      <div>
+        <label>Password</label>
+        <input type="password" name="password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Login</button>
+      <p id="error" class="error" style="display:none"></p>
+    </form>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    auth.initNav();
+    const u = auth.getUser();
+    if (u) document.getElementById('userName').textContent = u.email;
+    document.getElementById('loginForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const email = fd.get('email');
+      const password = fd.get('password');
+      const errEl = document.getElementById('error');
+      errEl.style.display = 'none';
+      try {
+        const res = await fetch('http://localhost:5014/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = auth.parseError(data);
+          errEl.style.display = 'block';
+          return;
+        }
+        auth.saveToken(data.token);
+        auth.saveUser(data);
+        const next = data.role === 'Employee'
+          ? 'dashboard.html'
+          : (data.role === 'Applicant' ? 'applicant-dashboard.html' : '../index.html');
+        window.location.href = next;
+      } catch (ex) {
+        errEl.textContent = 'Cannot reach API. Is it running on port 5014?';
+        errEl.style.display = 'block';
+      }
+    };
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+
+

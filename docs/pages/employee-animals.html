@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage animals - Tuscaloosa Rescue League</title>
+  <link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+  <header>
+    <div class="logo"></div>
+    <nav>
+      <span class="nav-group"><a href="../index.html">Home</a><span class="nav-divider"></span><a href="dashboard.html">Dashboard</a><a href="employee-animals.html">Animals</a><a href="employee-applications.html">Applications</a><a href="placements.html">Placements</a><a href="outreach.html">Events</a><a href="manage-outreach.html">Manage events</a><a href="create-animal.html" class="nav-cta">+ New animal</a></span>
+      <span class="nav-group"><button id="navLogout" class="btn">Logout</button></span>
+    </nav>
+  </header>
+  <main>
+    <h1>Animals (employee)</h1>
+    <p id="needLogin" class="error" style="display:none">Log in as an employee.</p>
+    <input type="search" id="search" placeholder="Search…" style="margin-bottom:1rem;max-width:280px">
+    <div id="grid" class="grid"></div>
+  </main>
+  <script src="../js/auth.js"></script>
+  <script>
+    document.getElementById('navLogout').onclick = () => { auth.logout(); location.href = '../index.html'; };
+    if (!auth.getToken() || auth.getUser()?.role !== 'Employee') {
+      document.getElementById('needLogin').style.display = 'block';
+    }
+    async function load() {
+      const q = document.getElementById('search').value.trim();
+      const sp = q ? '?search=' + encodeURIComponent(q) : '';
+      const res = await fetch(`${API_BASE}/animals${sp}`);
+      const list = await res.json();
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      for (const a of list) {
+        const img = a.primaryPhotoUrl ? `${API_ORIGIN}${a.primaryPhotoUrl}` : '';
+        const div = document.createElement('div');
+        div.className = 'card compact';
+        div.innerHTML = `
+          ${img ? `<img src="${img}" alt="">` : '<div class="card-img-placeholder"></div>'}
+          <div class="card-body">
+            <p><strong>${a.name}</strong><br><small>${a.publicId}</small></p>
+            <p><a href="animal.html?publicId=${encodeURIComponent(a.publicId)}">View</a> · <a href="edit-animal.html?publicId=${encodeURIComponent(a.publicId)}">Edit</a> · <a href="#" class="delLink" data-pid="${a.publicId}">Delete</a></p>
+          </div>`;
+        div.querySelector('.delLink')?.addEventListener('click', async (ev) => {
+          ev.preventDefault();
+          if (!confirm('Permanently delete this animal?')) return;
+          const res = await auth.api('/animals/' + encodeURIComponent(ev.target.dataset.pid), { method: 'DELETE' });
+          if (res.ok) load(); else { const j = await res.json().catch(() => ({})); alert(auth.parseError(j) || 'Delete failed'); }
+        });
+        grid.appendChild(div);
+      }
+    }
+    document.getElementById('search').oninput = () => clearTimeout(load.t); load.t = setTimeout(load, 300);
+    load();
+  </script>
+  <script src="../js/brand.js"></script>
+</body>
+</html>
+
+
+
