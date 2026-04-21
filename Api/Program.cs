@@ -85,7 +85,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdoptionDbContext>();
-    if (await ShouldRunMigrationsAsync(db))
+    var runMigrations = app.Configuration.GetValue<bool>("RunMigrationsOnStartup");
+    if (runMigrations && await ShouldRunMigrationsAsync(db))
         await db.Database.MigrateAsync();
     await DbSeeder.SeedAsync(db, app.Configuration);
 }
