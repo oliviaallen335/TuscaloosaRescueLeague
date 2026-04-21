@@ -43,7 +43,7 @@
       const errEl = document.getElementById('error');
       errEl.style.display = 'none';
       try {
-        const res = await fetch('http://localhost:5014/api/auth/register', {
+        const res = await auth.api('/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
