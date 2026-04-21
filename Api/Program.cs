@@ -81,8 +81,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-await DbSeeder.SeedAsync(app.Services.CreateScope().ServiceProvider.GetRequiredService<AdoptionDbContext>(),
-    app.Configuration);
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AdoptionDbContext>();
+    await db.Database.MigrateAsync();
+    await DbSeeder.SeedAsync(db, app.Configuration);
+}
 
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseCors("AllowFrontend");
@@ -98,21 +102,33 @@ static string ResolveMySqlConnectionString(IConfiguration config)
 {
     var jawsUrl = config["JAWSDB_URL"];
     if (!string.IsNullOrWhiteSpace(jawsUrl))
-    {
-        var uri = new Uri(jawsUrl);
-        var userInfo = uri.UserInfo.Split(':', 2);
-        var csb = new MySqlConnectionStringBuilder
-        {
-            Server = uri.Host,
-            Port = (uint)uri.Port,
-            UserID = userInfo[0],
-            Password = userInfo.Length > 1 ? userInfo[1] : "",
-            Database = uri.AbsolutePath.TrimStart('/'),
-            SslMode = MySqlSslMode.Required
-        };
-        return csb.ConnectionString;
-    }
+        return ConvertHerokuMySqlUrl(jawsUrl);
 
-    return config.GetConnectionString("DefaultConnection")
+    var configured = config.GetConnectionString("DefaultConnection")
         ?? throw new InvalidOperationException("MySQL connection not configured (DefaultConnection or JAWSDB_URL).");
+
+    if (configured.StartsWith("mysql://", StringComparison.OrdinalIgnoreCase) ||
+        configured.StartsWith("mysql2://", StringComparison.OrdinalIgnoreCase))
+        return ConvertHerokuMySqlUrl(configured);
+
+    return configured;
+}
+
+static string ConvertHerokuMySqlUrl(string url)
+{
+    var normalized = url.StartsWith("mysql2://", StringComparison.OrdinalIgnoreCase)
+        ? "mysql://" + url["mysql2://".Length..]
+        : url;
+    var uri = new Uri(normalized);
+    var userInfo = uri.UserInfo.Split(':', 2);
+    var csb = new MySqlConnectionStringBuilder
+    {
+        Server = uri.Host,
+        Port = (uint)uri.Port,
+        UserID = Uri.UnescapeDataString(userInfo[0]),
+        Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "",
+        Database = uri.AbsolutePath.TrimStart('/'),
+        SslMode = MySqlSslMode.Required
+    };
+    return csb.ConnectionString;
 }
