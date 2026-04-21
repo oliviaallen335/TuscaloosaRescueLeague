@@ -1,4 +1,4 @@
-const API_ORIGIN = 'http://localhost:5014';
+const API_ORIGIN = 'https://tuscaloosarescueleague-bfaa2c2c9002.herokuapp.com';
 const API_BASE = `${API_ORIGIN}/api`;
 
 const auth = {
