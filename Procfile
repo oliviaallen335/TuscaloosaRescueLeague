@@ -1,1 +1,1 @@
-web: dotnet Api/bin/publish/AdoptionAgency.Api.dll
+web: dotnet Api/bin/publish/AdoptionAgency.Api.dll --urls http://0.0.0.0:$PORT
